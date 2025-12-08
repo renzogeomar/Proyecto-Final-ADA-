@@ -1,12 +1,20 @@
-#include "DyslexiaLogic.h"
+#include "dyslexialogic.h"
+#include <vector>
+#include <QStringList>
 
-using namespace std;
+// Estructura interna para el mapa de resolución de conflictos
+struct StyleMapInfo {
+    unsigned int color;
+    int priority;
+    bool active; // Si hay algo pintado aquí
+};
 
-// --- Implementación KMP (Intacta) ---
-vector<int> DyslexiaLogic::buildLPS(const string &pattern) {
+// --- KMP Core (Intacto) ---
+std::vector<int> DyslexiaLogic::buildLPS(const QString &pattern) {
     int m = pattern.length();
-    vector<int> lps(m, 0);
-    int len = 0, i = 1;
+    std::vector<int> lps(m, 0);
+    int len = 0;
+    int i = 1;
     while (i < m) {
         if (pattern[i] == pattern[len]) {
             len++; lps[i] = len; i++;
@@ -18,18 +26,19 @@ vector<int> DyslexiaLogic::buildLPS(const string &pattern) {
     return lps;
 }
 
-vector<int> DyslexiaLogic::KMPsearch(const string &text, const string &pattern) {
-    vector<int> matches;
-    string lowerText = text;
-    // Conversión simple a minusculas
-    transform(lowerText.begin(), lowerText.end(), lowerText.begin(), ::tolower);
-    
-    vector<int> lps = buildLPS(pattern);
-    int n = text.length(), m = pattern.length();
+std::vector<int> DyslexiaLogic::KMPsearch(const QString &text, const QString &pattern) {
+    std::vector<int> matches;
+    QString lowerText = text.toLower(); // Normalización
+
+    std::vector<int> lps = buildLPS(pattern);
+    int n = text.length();
+    int m = pattern.length();
     int i = 0, j = 0;
 
     while (i < n) {
-        if (lowerText[i] == pattern[j]) { i++; j++; }
+        if (lowerText[i] == pattern[j]) {
+            i++; j++;
+        }
         if (j == m) {
             matches.push_back(i - j);
             j = lps[j - 1];
@@ -41,42 +50,112 @@ vector<int> DyslexiaLogic::KMPsearch(const string &text, const string &pattern) 
     return matches;
 }
 
-// --- Lógica de Análisis y Fusión ---
-vector<TextStyle> DyslexiaLogic::analyzeText(const string &text, int mode) {
-    vector<TextStyle> results;
-    vector<PatternConfig> configs;
-    set<char> triggers;
+// --- Lógica con Resolución de Conflictos (Versión Completa) ---
+std::vector<TextStyle> DyslexiaLogic::analyzeText(const QString &text, int mode) {
+    std::vector<PatternConfig> configs;
 
-    // Configuración según modo (Igual que en consola)
-    if (mode == 0) { // Dislexia Visual
-        configs = { {"b", 0xFF0000, 20}, {"d", 0x0000FF, 20}, {"p", 0x008000, 20}, {"q", 0xFF00FF, 20} };
-        triggers = {'b', 'd', 'p', 'q'};
-    } else if (mode == 1) { // Fonética
-        configs = { {"g", 0xFF0000, 20}, {"j", 0x0000FF, 20} };
-        triggers = {'g', 'j'};
+    // COLORES
+    unsigned int cRed = 0xD32F2F;    // Rojo
+    unsigned int cBlue = 0x1976D2;   // Azul
+    unsigned int cGreen = 0x388E3C;  // Verde
+    unsigned int cPurple = 0x7B1FA2; // Morado
+    unsigned int cSyllable = 0xE65100; // Naranja (Prioridad Alta)
+
+    // --- CONFIGURACIÓN JERÁRQUICA ---
+    if (mode == 0) { // Modo Espejo (b/d/p/q)
+        configs.push_back({"b", cRed, 20});
+        configs.push_back({"d", cBlue, 20});
+        configs.push_back({"p", cGreen, 20});
+        configs.push_back({"q", cPurple, 20});
+
+        // Sílabas trabadas comunes
+        QStringList trabadas = {
+            "bra", "bre", "bri", "bro", "bru", "bla", "ble", "bli", "blo", "blu",
+            "dra", "dre", "dri", "dro", "dru", "pla", "ple", "pli", "plo", "plu",
+            "cla", "cle", "cli", "clo", "clu",
+            "pra", "pre", "pri", "pro", "pru", "pla", "ple", "pli", "plo", "plu"
+        };
+        for(const QString &s : trabadas) configs.push_back({s, cSyllable, 50});
+    }
+    else if (mode == 1) { // Fonética (g/j)
+        configs.push_back({"g", cRed, 20});
+        configs.push_back({"j", cBlue, 20});
+        configs.push_back({"ll", cGreen, 30});
+        configs.push_back({"y", cPurple, 20});
+
+        // Excepciones fonéticas
+        configs.push_back({"gui", cSyllable, 50});
+        configs.push_back({"gue", cSyllable, 50});
+    }
+    else if (mode == 2) { // Modo Formas (m/n/u/h) -> ¡AQUÍ ESTABA EL ERROR, FALTABA ESTO!
+        configs.push_back({"m", cRed, 20});
+        configs.push_back({"n", cBlue, 20});
+        configs.push_back({"u", cGreen, 20});
+        configs.push_back({"h", cPurple, 20});
+
+        // Conflictos visuales de arcos juntos
+        QStringList arcos = {"mn", "nm", "nn", "mm", "un", "nu"};
+        for(const QString &s : arcos) configs.push_back({s, cSyllable, 50});
+    }
+    else if (mode == 3) { // Modo Vertical (l/i/t/f) -> ¡Y ESTO!
+        configs.push_back({"l", cRed, 20});
+        configs.push_back({"i", cBlue, 20});
+        configs.push_back({"t", cGreen, 20});
+        configs.push_back({"f", cPurple, 20});
+
+        QStringList verticalComplex = {
+            "il", "li", "ll", "it", "ti", "fl", "fi", "if",
+            "tra", "tre", "tri", "tro", "tru", "fla", "fle",
+            "fli", "flo", "flu"
+        };
+        for(const QString &s : verticalComplex) configs.push_back({s, cSyllable, 50});
     }
 
-    // 1. Ejecutar KMP para cada patrón
+    // --- ALGORITMO DE FUSIÓN (MAPEO) ---
+    int len = text.length();
+    // (Nota: Si te da error aquí, asegúrate de tener definidos StyleMapInfo arriba)
+    std::vector<StyleMapInfo> styleMap(len, {0, 0, false});
+
     for (const auto &cfg : configs) {
-        vector<int> found = KMPsearch(text, cfg.pattern);
-        for (int pos : found) {
-            // Guardamos el estilo para enviar a la GUI
-            results.push_back({pos, (int)cfg.pattern.length(), false, cfg.color});
+        std::vector<int> found = KMPsearch(text, cfg.pattern);
+        for (int startPos : found) {
+            int endPos = startPos + cfg.pattern.length();
+            for (int k = startPos; k < endPos; k++) {
+                if (k < len) {
+                    if (!styleMap[k].active || cfg.priority > styleMap[k].priority) {
+                        styleMap[k].color = cfg.color;
+                        styleMap[k].priority = cfg.priority;
+                        styleMap[k].active = true;
+                    }
+                }
+            }
         }
     }
 
-    // 2. Heatmap (Zonas confusas)
-    string lowerText = text;
-    transform(lowerText.begin(), lowerText.end(), lowerText.begin(), ::tolower);
-    vector<int> tIdx;
-    for(int i=0; i<lowerText.length(); i++) if(triggers.count(lowerText[i])) tIdx.push_back(i);
+    // --- GENERAR RESULTADOS ---
+    std::vector<TextStyle> finalResults;
+    if (len == 0) return finalResults;
 
-    for(size_t i = 0; i + 1 < tIdx.size(); i++) {
-        if((tIdx[i+1] - tIdx[i]) < 6) {
-            // Fondo amarillo suave (0xFFFFE0)
-            results.push_back({tIdx[i], tIdx[i+1] - tIdx[i] + 1, true, 0xFFFF00});
+    int currentStart = -1;
+    unsigned int currentColor = 0;
+    bool tracking = false;
+
+    for (int i = 0; i < len; i++) {
+        if (styleMap[i].active) {
+            if (!tracking) {
+                tracking = true; currentStart = i; currentColor = styleMap[i].color;
+            } else if (styleMap[i].color != currentColor) {
+                finalResults.push_back({currentStart, i - currentStart, false, currentColor});
+                currentStart = i; currentColor = styleMap[i].color;
+            }
+        } else {
+            if (tracking) {
+                finalResults.push_back({currentStart, i - currentStart, false, currentColor});
+                tracking = false;
+            }
         }
     }
+    if (tracking) finalResults.push_back({currentStart, len - currentStart, false, currentColor});
 
-    return results;
+    return finalResults;
 }

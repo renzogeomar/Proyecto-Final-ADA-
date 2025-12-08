@@ -5,6 +5,7 @@
 #include <QTextEdit>
 #include <QComboBox>
 #include <QPushButton>
+#include <QLabel> // <-- NUEVO: Para la leyenda
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -15,14 +16,13 @@ public:
 private slots:
     void openFile();
     void processText();
+    void updateLegend(int index); // <-- NUEVO: Slot para cambiar texto leyenda
 
 private:
-    QTextEdit *textEdit; // El área de texto
+    QTextEdit *textEdit;
     QComboBox *modeCombo;
     QPushButton *processBtn;
-    
-    // Función para pintar el texto
-    void applyStyles(const std::string &originalText);
+    QLabel *legendLabel; // <-- NUEVO: El widget de texto
 };
 
 #endif // MAINWINDOW_H
